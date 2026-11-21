@@ -1,0 +1,87 @@
+name: AnzerAI reusable agent
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        description: Issue or pull request number
+        required: true
+        type: number
+      trigger_kind:
+        description: issue or pull_request
+        required: true
+        type: string
+      trigger_actor:
+        description: Actor who requested the run
+        required: true
+        type: string
+      trigger_association:
+        description: GitHub author association
+        required: true
+        type: string
+      pr_head_ref:
+        description: Pull request head branch (required for PR requests)
+        required: false
+        type: string
+      pr_head_repository:
+        description: Full name of the pull request head repository
+        required: false
+        type: string
+    secrets:
+      ANZERAI_API_KEY:
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: anzerai-${{ github.repository }}-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  agent:
+    if: >-
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+      inputs.trigger_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out target repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.pr_head_ref != '' && inputs.pr_head_ref || github.event.repository.default_branch }}
+          persist-credentials: true
+
+      - name: Check out AnzerAI engine
+        uses: actions/checkout@v4
+        with:
+          repository: AnzerAyoob/AnzerAI
+          ref: v0.1.0
+          path: .anzerai-engine
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install agent dependencies
+        run: python -m pip install --disable-pip-version-check -r .anzerai-engine/.github/scripts/requirements.txt
+
+      - name: Run AnzerAI
+        env:
+          ANZERAI_API_KEY: ${{ secrets.ANZERAI_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          TRIGGER_KIND: ${{ inputs.trigger_kind }}
+          TRIGGER_ACTOR: ${{ inputs.trigger_actor }}
+          TRIGGER_ASSOCIATION: ${{ inputs.trigger_association }}
+          PR_HEAD_REF: ${{ inputs.pr_head_ref }}
+          PR_HEAD_REPOSITORY: ${{ inputs.pr_head_repository }}
+          ENGINE_DIR: .anzerai-engine
+          GITHUB_API_URL: ${{ github.api_url }}
+        run: python .anzerai-engine/.github/scripts/anzerai.py

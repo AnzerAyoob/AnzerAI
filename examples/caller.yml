@@ -1,0 +1,33 @@
+name: AnzerAI
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  dispatch:
+    if: >-
+      (github.event_name == 'issues' &&
+       github.event.label.name == 'ai-agent' &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+      ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '/agent') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    uses: AnzerAyoob/AnzerAI/.github/workflows/reusable-agent.yml@v0.1.0
+    with:
+      issue_number: ${{ github.event.issue.number }}
+      trigger_kind: ${{ github.event.issue.pull_request && 'pull_request' || 'issue' }}
+      trigger_actor: ${{ github.actor }}
+      trigger_association: ${{ github.event_name == 'issues' && github.event.issue.author_association || github.event.comment.author_association }}
+      pr_head_ref: ${{ github.event.issue.pull_request && github.event.issue.pull_request.head.ref || '' }}
+      pr_head_repository: ${{ github.event.issue.pull_request && github.event.issue.pull_request.head.repo.full_name || github.repository }}
+    secrets:
+      ANZERAI_API_KEY: ${{ secrets.ANZERAI_API_KEY }}
