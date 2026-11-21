@@ -1,19 +1,20 @@
 # AnzerAI
 
-AnzerAI is the MIT-licensed client for a separately operated private coding service. The client and service communicate through a versioned JSON API. The [architecture decision](docs/CORE_ARCHITECTURE.md) describes the intended GitHub integration and bring-your-own-key model.
+AnzerAI is the MIT-licensed public client for a separate private service. The client submits GitHub issue and pull request references over a versioned JSON API.
 
-Phase 1 supports submitting an issue or pull request reference and looking up its receipt. A receipt is stored as received while GitHub verification and processing are pending implementation. This branch has no installable GitHub Actions release.
+Phase 2 adds GitHub Actions OIDC authorization for manually dispatched workflows. Core validates the workflow and actor against GitHub and checks the target before issuing an authorized receipt. This branch is local development work.
 
-## Local development
+- [Set up a GitHub workflow](docs/SETUP.md)
+- [Authorization](docs/AUTHORIZATION.md)
+- [Security](docs/SECURITY.md)
+- [GitHub intake protocol v2](docs/protocol-v2.md)
+- [Legacy development protocol v1](docs/protocol-v1.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Architecture decision](docs/CORE_ARCHITECTURE.md)
 
-Use Python 3.12. Set ANZERAI_API_URL to the service origin and ANZERAI_API_KEY to the repository's AnzerAI client credential in your shell environment.
+## Development
 
-~~~sh
-python -m anzerai_client submit --repository example/project --kind issue --number 42 --idempotency-key delivery-42
-python -m anzerai_client status JOB_ID
-~~~
-
-Use the same idempotency key when retrying the same submission. For a loopback development server, set the origin to http://127.0.0.1:8765 and place --allow-loopback-http before the subcommand. The client otherwise requires HTTPS and refuses redirects.
+Use Python 3.12.
 
 ~~~sh
 python -m pip install ruff==0.17.6
@@ -23,4 +24,4 @@ python -m ruff check .
 python -m ruff format --check .
 ~~~
 
-See [the v1 protocol](docs/protocol-v1.md) and [LICENSE](LICENSE).
+See [LICENSE](LICENSE).

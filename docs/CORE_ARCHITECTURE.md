@@ -11,7 +11,7 @@ Users bring their own AI provider credentials (BYOK — Bring Your Own Key). Anz
 | Layer | Repository / location | Visibility | Responsibility |
 |---|---|---|---|
 | AnzerAI Client | `AnzerAyoob/AnzerAI` | Public | GitHub Action/client, installer, configuration templates, docs |
-| AnzerAI Core | `AnzerAyoob/AnzerAI-Core` (planned) | Private | Agent orchestration, planner, prompts, tool policy, execution loop, recovery, model routing, security logic |
+| AnzerAI Core | `AnzerAyoob/AnzerAI-Core` | Private | Agent orchestration, planner, prompts, tool policy, execution loop, recovery, model routing, security logic |
 | AnzerAI API | Initially hosted alongside Core; may be split into a separate private repo later | Private service | Authenticated request intake, validation, queueing, job status, orchestration access, rate limits |
 | User repository | Each user's own repository | User-controlled | Source code, issues, agent configuration, tests and GitHub permissions |
 | User AI credentials | GitHub Actions secrets / secure credential handling | Private | Gemini or OpenRouter API credentials and provider usage/billing |
@@ -84,4 +84,4 @@ For the first MVP, keep the private engine and API service in one private reposi
 
 ## Status
 
-This is the agreed architectural direction, not an implemented or deployed system. The current public repository scaffold and its open draft PR must be re-evaluated against this hosted/private-engine design before implementation continues.
+Local feature branches implement the client-to-Core intake and GitHub authorization described in the [roadmap](ROADMAP.md). The hosted service, BYOK provider integration, and execution path remain planned. The legacy public draft was audited separately.

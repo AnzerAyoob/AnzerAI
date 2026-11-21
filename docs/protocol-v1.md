@@ -1,5 +1,7 @@
 # AnzerAI intake protocol v1
 
+> Legacy loopback development protocol. Core enables v1 only when ANZERAI_ENABLE_LEGACY_INTAKE=1 and GitHub mode is unconfigured. V1 receipts remain unverified and cannot be read or promoted through v2. For GitHub workflows, use [protocol v2](protocol-v2.md).
+
 The public client authenticates to the service using the Authorization header with the Bearer scheme. The credential is issued for a single repository. ANZERAI_API_KEY is a service credential. BYOK provider credentials are handled separately in the planned execution flow.
 
 Send POST /v1/jobs with Content-Type application/json and an Idempotency-Key of 1–128 ASCII letters, digits, underscores, or hyphens. The JSON object accepts exactly these fields.

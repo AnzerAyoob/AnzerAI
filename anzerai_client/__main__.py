@@ -3,6 +3,7 @@ import json
 import os
 
 from anzerai_client.api import Client, ClientError
+from anzerai_client.github import get_workflow_token
 
 
 def main() -> int:
@@ -15,23 +16,36 @@ def main() -> int:
         help="Use a local development service.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    submit = commands.add_parser("submit")
-    submit.add_argument("--repository", required=True)
-    submit.add_argument("--kind", required=True, choices=("issue", "pull_request"))
-    submit.add_argument("--number", required=True, type=int)
-    submit.add_argument("--idempotency-key", required=True)
-    status = commands.add_parser("status")
-    status.add_argument("job_id")
+    for command in ("submit", "submit-github"):
+        submit = commands.add_parser(command)
+        submit.add_argument("--repository", required=True)
+        submit.add_argument("--kind", required=True, choices=("issue", "pull_request"))
+        submit.add_argument("--number", required=True, type=int)
+        if command == "submit":
+            submit.add_argument("--idempotency-key", required=True)
+    for command in ("status", "status-github"):
+        status = commands.add_parser(command)
+        status.add_argument("job_id")
     args = parser.parse_args()
     try:
+        github = args.command.endswith("-github")
+        token = (
+            get_workflow_token(os.environ)
+            if github
+            else os.environ.get("ANZERAI_API_KEY", "")
+        )
         client = Client(
             os.environ.get("ANZERAI_API_URL", ""),
-            os.environ.get("ANZERAI_API_KEY", ""),
+            token,
             allow_loopback_http=args.allow_loopback_http,
+            github=github,
         )
-        if args.command == "submit":
+        if args.command.startswith("submit"):
             job = client.submit(
-                args.repository, args.kind, args.number, args.idempotency_key
+                args.repository,
+                args.kind,
+                args.number,
+                getattr(args, "idempotency_key", None),
             )
         else:
             job = client.status(args.job_id)

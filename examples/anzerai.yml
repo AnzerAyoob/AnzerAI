@@ -1,0 +1,46 @@
+# Copy to .github/workflows/anzerai.yml and fill in the service origin and client commit.
+name: AnzerAI authorization
+run-name: "anzerai-v2:${{ inputs.kind }}:${{ inputs.number }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: Task source
+        required: true
+        type: choice
+        options: [issue, pull_request]
+      number:
+        description: Issue or pull request number
+        required: true
+        type: number
+
+permissions: {}
+
+jobs:
+  submit:
+    if: >-
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      && !github.event.repository.fork
+      && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      id-token: write
+    steps:
+      - name: Submit the dispatched reference
+        env:
+          ANZERAI_API_URL: https://REPLACE_WITH_SERVICE_ORIGIN
+          ANZERAI_CLIENT_SHA: REPLACE_WITH_REVIEWED_PUBLIC_CLIENT_COMMIT
+          TASK_KIND: ${{ inputs.kind }}
+          TASK_NUMBER: ${{ inputs.number }}
+        shell: bash
+        run: |
+          [[ "$ANZERAI_CLIENT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git init "$RUNNER_TEMP/anzerai-client"
+          cd "$RUNNER_TEMP/anzerai-client"
+          git fetch --depth=1 https://github.com/AnzerAyoob/AnzerAI.git "$ANZERAI_CLIENT_SHA"
+          [[ "$(git rev-parse FETCH_HEAD)" == "$ANZERAI_CLIENT_SHA" ]]
+          git checkout --detach FETCH_HEAD
+          python3.12 -m anzerai_client submit-github \
+            --repository "$GITHUB_REPOSITORY" --kind "$TASK_KIND" --number "$TASK_NUMBER"
