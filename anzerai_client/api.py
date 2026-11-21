@@ -166,6 +166,36 @@ class Client:
     def enqueue_inference(
         self, receipt_id: str, generation: dict, provider_key: str
     ) -> dict:
+        return self._enqueue_provider(
+            "/v4/inference",
+            "inference_probe",
+            receipt_id,
+            generation,
+            provider_key,
+        )
+
+    def enqueue_analysis(
+        self,
+        receipt_id: str,
+        generation: dict,
+        provider_key: str,
+        *,
+        task: str,
+        context: dict,
+    ) -> dict:
+        return self._enqueue_provider(
+            "/v5/analysis",
+            "analysis_plan",
+            receipt_id,
+            generation,
+            provider_key,
+            task=task,
+            context=context,
+        )
+
+    def _enqueue_provider(
+        self, path, job_type, receipt_id, generation, provider_key, **payload
+    ) -> dict:
         self._require_lifecycle_id(receipt_id)
         if generation.get("provider") == "mock" and provider_key:
             raise ClientError("mock inference uses no provider credential")
@@ -179,25 +209,33 @@ class Client:
         ):
             raise ClientError("provider credentials require HTTPS and a valid key")
         result = self._exchange(
-            "/v4/inference",
-            {"receipt_id": receipt_id, "generation": generation},
+            path,
+            {"receipt_id": receipt_id, "generation": generation} | payload,
             provider_key=provider_key,
         )
-        job = self._validate_lifecycle(result, "inference_probe")
+        job = self._validate_lifecycle(result, job_type)
         if job["receipt_id"] != receipt_id:
             raise ClientError("service returned a different admission receipt")
         return job
 
     def inference(self, job_id: str, *, cancel: bool = False) -> dict:
+        return self._provider_job(
+            "/v4/inference", "inference_probe", job_id, cancel, str
+        )
+
+    def analysis(self, job_id: str, *, cancel: bool = False) -> dict:
+        return self._provider_job("/v5/analysis", "analysis_plan", job_id, cancel, dict)
+
+    def _provider_job(self, route, job_type, job_id, cancel, result_type) -> dict:
         self._require_lifecycle_id(job_id)
-        path = f"/v4/inference/{job_id}"
+        path = f"{route}/{job_id}"
         result = (
             self._exchange(path + "/cancel", method="POST")
             if cancel
             else self._exchange(path)
         )
         if cancel:
-            job = self._validate_lifecycle(result, "inference_probe")
+            job = self._validate_lifecycle(result, job_type)
         else:
             if (
                 not isinstance(result, dict)
@@ -206,14 +244,14 @@ class Client:
                 or not isinstance(result["model"], str)
                 or (
                     result["result"] is not None
-                    and not isinstance(result["result"], str)
+                    and not isinstance(result["result"], result_type)
                 )
                 or not isinstance(result["requests"], list)
                 or len(result["requests"]) > 10
                 or any(not isinstance(item, dict) for item in result["requests"])
             ):
                 raise ClientError("service returned an invalid inference result")
-            job = self._validate_lifecycle(result["job"], "inference_probe")
+            job = self._validate_lifecycle(result["job"], job_type)
         if job["id"] != job_id:
             raise ClientError("service returned a different job ID")
         return result
@@ -299,7 +337,7 @@ class Client:
             headers["AnzerAI-Provider-Key"] = provider_key
         limit = (
             MAX_INFERENCE_RESPONSE_BYTES
-            if path.startswith("/v4/")
+            if path.startswith(("/v4/", "/v5/"))
             else MAX_RESPONSE_BYTES
         )
         data = None

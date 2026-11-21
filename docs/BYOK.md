@@ -14,4 +14,4 @@ Use `openrouter` and an approved `vendor/model` ID for OpenRouter. The client re
 
 Use `--provider mock --model mock-text` with a mock-enabled local Core for a free probe. Leave the provider-key environment variable unset in that case.
 
-See the [API contract](API.md) and [GitHub setup](SETUP.md).
+For a bounded repository planning job using the same credential flow, see [analysis setup](ANALYSIS.md). See the [API contract](API.md) and [GitHub setup](SETUP.md).

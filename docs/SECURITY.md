@@ -1,5 +1,7 @@
 # Security
 
+V5 analysis accepts only an explicit text snapshot and matches its declared scope to the original workflow receipt. Inspect the snapshot before submission. Secret filtering is heuristic, and the chosen provider sees selected context. Treat model plans as untrusted proposals. [Analysis setup](ANALYSIS.md)
+
 V4 real-provider submissions require HTTPS and an admitted GitHub workflow. Use a repository secret for the provider key and expose it only to the pinned enqueue step. Results are untrusted text and may expire from the API. See [BYOK](BYOK.md).
 
 Phase 2 verifies identities and stores receipts. The caller workflow gets an OIDC identity and receives a receipt. The private service authenticates to GitHub through a repository-scoped, read-only GitHub App installation token that stays server-side.

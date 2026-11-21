@@ -4,6 +4,7 @@ import os
 
 from anzerai_client.api import Client, ClientError
 from anzerai_client.github import get_workflow_token
+from anzerai_client.snapshot import read_snapshot
 
 
 def main() -> int:
@@ -26,15 +27,23 @@ def main() -> int:
     enqueue = commands.add_parser("enqueue-github")
     enqueue.add_argument("receipt_id")
     enqueue.add_argument("--delay-seconds", type=int, default=0)
-    infer = commands.add_parser("infer-github")
-    infer.add_argument("receipt_id")
-    infer.add_argument(
-        "--provider", choices=("gemini", "openrouter", "mock"), required=True
-    )
-    infer.add_argument("--model", required=True)
-    infer.add_argument("--max-output-tokens", type=int, default=32)
-    infer.add_argument("--timeout", type=int, default=10)
-    infer.add_argument("--temperature", type=float)
+    for name in ("infer-github", "analyze-github"):
+        infer = commands.add_parser(name)
+        infer.add_argument("receipt_id")
+        infer.add_argument(
+            "--provider", required=True, choices=("gemini", "openrouter", "mock")
+        )
+        infer.add_argument("--model", required=True)
+        infer.add_argument(
+            "--max-output-tokens",
+            type=int,
+            default=1024 if name == "analyze-github" else 32,
+        )
+        infer.add_argument("--timeout", type=int, default=10)
+        infer.add_argument("--temperature", type=float)
+        if name == "analyze-github":
+            infer.add_argument("--task", required=True)
+            infer.add_argument("--context", required=True)
     for command in (
         "status",
         "status-github",
@@ -42,6 +51,8 @@ def main() -> int:
         "cancel-github",
         "inference-github",
         "cancel-inference-github",
+        "analysis-github",
+        "cancel-analysis-github",
     ):
         status = commands.add_parser(command)
         status.add_argument("job_id")
@@ -68,17 +79,28 @@ def main() -> int:
             )
         elif args.command == "enqueue-github":
             job = client.enqueue(args.receipt_id, args.delay_seconds)
-        elif args.command == "infer-github":
-            job = client.enqueue_inference(
-                args.receipt_id,
-                {
-                    "provider": args.provider,
-                    "model": args.model,
-                    "max_output_tokens": args.max_output_tokens,
-                    "timeout": args.timeout,
-                    "temperature": args.temperature,
-                },
-                os.environ.get("ANZERAI_PROVIDER_API_KEY", ""),
+        elif args.command in ("infer-github", "analyze-github"):
+            generation = {
+                "provider": args.provider,
+                "model": args.model,
+                "max_output_tokens": args.max_output_tokens,
+                "timeout": args.timeout,
+                "temperature": args.temperature,
+            }
+            key = os.environ.get("ANZERAI_PROVIDER_API_KEY", "")
+            if args.command == "analyze-github":
+                job = client.enqueue_analysis(
+                    args.receipt_id,
+                    generation,
+                    key,
+                    task=args.task,
+                    context=read_snapshot(args.context),
+                )
+            else:
+                job = client.enqueue_inference(args.receipt_id, generation, key)
+        elif args.command in ("analysis-github", "cancel-analysis-github"):
+            job = client.analysis(
+                args.job_id, cancel=args.command == "cancel-analysis-github"
             )
         elif args.command in ("inference-github", "cancel-inference-github"):
             job = client.inference(
