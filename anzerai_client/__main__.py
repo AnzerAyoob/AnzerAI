@@ -23,7 +23,10 @@ def main() -> int:
         submit.add_argument("--number", required=True, type=int)
         if command == "submit":
             submit.add_argument("--idempotency-key", required=True)
-    for command in ("status", "status-github"):
+    enqueue = commands.add_parser("enqueue-github")
+    enqueue.add_argument("receipt_id")
+    enqueue.add_argument("--delay-seconds", type=int, default=0)
+    for command in ("status", "status-github", "job-github", "cancel-github"):
         status = commands.add_parser(command)
         status.add_argument("job_id")
     args = parser.parse_args()
@@ -47,6 +50,12 @@ def main() -> int:
                 args.number,
                 getattr(args, "idempotency_key", None),
             )
+        elif args.command == "enqueue-github":
+            job = client.enqueue(args.receipt_id, args.delay_seconds)
+        elif args.command == "job-github":
+            job = client.job(args.job_id)
+        elif args.command == "cancel-github":
+            job = client.cancel(args.job_id)
         else:
             job = client.status(args.job_id)
     except ClientError as error:

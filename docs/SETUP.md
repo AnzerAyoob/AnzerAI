@@ -15,6 +15,14 @@ python3.12 -m anzerai_client submit-github --repository "$GITHUB_REPOSITORY" --k
 python3.12 -m anzerai_client status-github JOB_ID
 ~~~
 
-Status requires an OIDC token from the same first-attempt workflow run and repeats authorization checks. Core returns a receipt, and Phase 2 stops at admission. For local Phase 1 development, see [protocol v1](protocol-v1.md).
+Receipt status requires an OIDC token from the same first-attempt workflow run and repeats authorization checks. To submit a lifecycle check, use the receipt ID in the same workflow run.
+
+~~~sh
+python3.12 -m anzerai_client enqueue-github RECEIPT_ID
+python3.12 -m anzerai_client job-github JOB_ID
+python3.12 -m anzerai_client cancel-github JOB_ID
+~~~
+
+The example workflow performs admission only. Add the enqueue command in the same trusted workflow if you want a lifecycle check and coordinate the new workflow revision with the Core operator. Use the returned job ID for status and cancellation. See [protocol v3](protocol-v3.md) and the [local development protocol](protocol-v1.md).
 
 [GitHub OIDC reference](https://docs.github.com/en/actions/reference/security/oidc) · [Workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)

@@ -16,7 +16,7 @@ HTTP 201 means a new authorized receipt. Identical retries that still pass verif
 {"id":"9f4a5e4b-3d8a-4fca-9d08-e31f1b20a8a1","status":"authorized","repository":"example/project","kind":"issue","number":42}
 ~~~
 
-Authorized means Core verified the request at intake. Phase 2 stops at admission.
+Authorized means Core verified the request at intake. To schedule a separate lifecycle check, use [protocol v3](protocol-v3.md).
 
 | HTTP status | Error codes |
 | --- | --- |
