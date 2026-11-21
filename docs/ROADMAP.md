@@ -6,7 +6,7 @@
 | 1. Core foundation | Complete locally | Versioned client intake and SQLite receipts on local feature branches. |
 | 2. GitHub identity and authorization | Complete locally | GitHub OIDC, repository and actor authorization, event binding, and fork protection. Live GitHub Actions-to-Core validation is pending. |
 | 3. Authorized job lifecycle | Complete locally | Separate lifecycle jobs, SQLite queue and attempt history, worker reauthorization, fenced leases, retries, and cooperative cancellation. Verification uses offline fixtures. |
-| 4. AI provider abstraction and BYOK | Pending | Provider interface and secure credential handling. |
+| 4. AI provider abstraction and BYOK | Complete locally | Gemini and OpenRouter adapters, encrypted job-scoped keys, normalized usage and inference probes. Live provider smoke tests are pending. |
 | 5. Repository analysis and planning engine | Pending | Repository context and task planning. |
 | 6. Controlled coding tools and isolated execution | Pending | Restrict tools and isolate execution. |
 | 7. Testing and self-repair | Pending | Verification and bounded repair. |

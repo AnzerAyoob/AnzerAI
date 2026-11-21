@@ -15,6 +15,8 @@ JOB_ID = re.compile(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}")
 IDEMPOTENCY_KEY = re.compile(r"[a-zA-Z0-9_-]{1,128}")
 REPOSITORY = re.compile(r"[a-z0-9][a-z0-9-]{0,38}/[a-z0-9_.-]{1,100}", re.ASCII | re.I)
 MAX_RESPONSE_BYTES = 8192
+MAX_INFERENCE_RESPONSE_BYTES = 131072
+PROVIDER_KEY = re.compile(r"[A-Za-z0-9._~-]{8,512}")
 JOB_STATES = {
     "queued",
     "scheduled",
@@ -45,6 +47,11 @@ JOB_FAILURES = {
     "queue_wait_exceeded",
     "worker_shutdown",
     "internal_error",
+    "inference_failed",
+    "provider_rate_limit",
+    "provider_outcome_unknown",
+    "inference_unavailable",
+    "credential_unavailable",
 }
 
 
@@ -156,6 +163,61 @@ class Client:
     def cancel(self, job_id: str) -> dict:
         return self._job_action(job_id, "/cancel")
 
+    def enqueue_inference(
+        self, receipt_id: str, generation: dict, provider_key: str
+    ) -> dict:
+        self._require_lifecycle_id(receipt_id)
+        if generation.get("provider") == "mock" and provider_key:
+            raise ClientError("mock inference uses no provider credential")
+        if generation.get("provider") != "mock" and not PROVIDER_KEY.fullmatch(
+            provider_key
+        ):
+            raise ClientError("ANZERAI_PROVIDER_API_KEY is required")
+        if provider_key and (
+            not self.endpoint.startswith("https://")
+            or not PROVIDER_KEY.fullmatch(provider_key)
+        ):
+            raise ClientError("provider credentials require HTTPS and a valid key")
+        result = self._exchange(
+            "/v4/inference",
+            {"receipt_id": receipt_id, "generation": generation},
+            provider_key=provider_key,
+        )
+        job = self._validate_lifecycle(result, "inference_probe")
+        if job["receipt_id"] != receipt_id:
+            raise ClientError("service returned a different admission receipt")
+        return job
+
+    def inference(self, job_id: str, *, cancel: bool = False) -> dict:
+        self._require_lifecycle_id(job_id)
+        path = f"/v4/inference/{job_id}"
+        result = (
+            self._exchange(path + "/cancel", method="POST")
+            if cancel
+            else self._exchange(path)
+        )
+        if cancel:
+            job = self._validate_lifecycle(result, "inference_probe")
+        else:
+            if (
+                not isinstance(result, dict)
+                or result.keys() != {"job", "provider", "model", "result", "requests"}
+                or not isinstance(result["provider"], str)
+                or not isinstance(result["model"], str)
+                or (
+                    result["result"] is not None
+                    and not isinstance(result["result"], str)
+                )
+                or not isinstance(result["requests"], list)
+                or len(result["requests"]) > 10
+                or any(not isinstance(item, dict) for item in result["requests"])
+            ):
+                raise ClientError("service returned an invalid inference result")
+            job = self._validate_lifecycle(result["job"], "inference_probe")
+        if job["id"] != job_id:
+            raise ClientError("service returned a different job ID")
+        return result
+
     def _require_lifecycle_id(self, value: str) -> None:
         if not self.github or not JOB_ID.fullmatch(value):
             raise ClientError("lifecycle operations require a valid ID and GitHub OIDC")
@@ -172,7 +234,12 @@ class Client:
     def _lifecycle(
         self, path: str, body: dict | None = None, *, method: str | None = None
     ) -> dict:
-        result = self._exchange(path, body, method=method)
+        return self._validate_lifecycle(
+            self._exchange(path, body, method=method), "lifecycle_check"
+        )
+
+    @staticmethod
+    def _validate_lifecycle(result: object, job_type: str) -> dict:
         fields = {
             "id",
             "receipt_id",
@@ -193,7 +260,7 @@ class Client:
                 for k in ("id", "receipt_id")
             )
             or not valid_reference(result)
-            or result["job_type"] != "lifecycle_check"
+            or result["job_type"] != job_type
             or not isinstance(result["status"], str)
             or result["status"] not in JOB_STATES
             or not all(
@@ -222,11 +289,19 @@ class Client:
         key: str | None = None,
         *,
         method: str | None = None,
+        provider_key: str = "",
     ) -> object:
         headers = {
             "Authorization": f"Bearer {self.token}",
             "Accept": "application/json",
         }
+        if provider_key:
+            headers["AnzerAI-Provider-Key"] = provider_key
+        limit = (
+            MAX_INFERENCE_RESPONSE_BYTES
+            if path.startswith("/v4/")
+            else MAX_RESPONSE_BYTES
+        )
         data = None
         if body is not None:
             headers["Content-Type"] = "application/json"
@@ -243,7 +318,7 @@ class Client:
                     raise ClientError("service returned an unexpected status")
                 if response.headers.get_content_type() != "application/json":
                     raise ClientError("service returned an unexpected content type")
-                raw = response.read(MAX_RESPONSE_BYTES + 1)
+                raw = response.read(limit + 1)
         except HTTPError as error:
             error.close()
             raise ClientError(
@@ -251,10 +326,13 @@ class Client:
             ) from None
         except (URLError, OSError, HTTPException, UnicodeError):
             raise ClientError("could not reach the AnzerAI service") from None
-        if len(raw) > MAX_RESPONSE_BYTES:
+        if len(raw) > limit:
             raise ClientError("service response exceeded the size limit")
         try:
-            return json.loads(raw.decode("utf-8"))
+            result = json.loads(raw.decode("utf-8"))
+            if provider_key and provider_key in json.dumps(result):
+                raise ClientError("service returned an invalid response")
+            return result
         except (ValueError, RecursionError):
             raise ClientError("service returned invalid JSON") from None
 

@@ -26,7 +26,23 @@ def main() -> int:
     enqueue = commands.add_parser("enqueue-github")
     enqueue.add_argument("receipt_id")
     enqueue.add_argument("--delay-seconds", type=int, default=0)
-    for command in ("status", "status-github", "job-github", "cancel-github"):
+    infer = commands.add_parser("infer-github")
+    infer.add_argument("receipt_id")
+    infer.add_argument(
+        "--provider", choices=("gemini", "openrouter", "mock"), required=True
+    )
+    infer.add_argument("--model", required=True)
+    infer.add_argument("--max-output-tokens", type=int, default=32)
+    infer.add_argument("--timeout", type=int, default=10)
+    infer.add_argument("--temperature", type=float)
+    for command in (
+        "status",
+        "status-github",
+        "job-github",
+        "cancel-github",
+        "inference-github",
+        "cancel-inference-github",
+    ):
         status = commands.add_parser(command)
         status.add_argument("job_id")
     args = parser.parse_args()
@@ -52,6 +68,22 @@ def main() -> int:
             )
         elif args.command == "enqueue-github":
             job = client.enqueue(args.receipt_id, args.delay_seconds)
+        elif args.command == "infer-github":
+            job = client.enqueue_inference(
+                args.receipt_id,
+                {
+                    "provider": args.provider,
+                    "model": args.model,
+                    "max_output_tokens": args.max_output_tokens,
+                    "timeout": args.timeout,
+                    "temperature": args.temperature,
+                },
+                os.environ.get("ANZERAI_PROVIDER_API_KEY", ""),
+            )
+        elif args.command in ("inference-github", "cancel-inference-github"):
+            job = client.inference(
+                args.job_id, cancel=args.command == "cancel-inference-github"
+            )
         elif args.command == "job-github":
             job = client.job(args.job_id)
         elif args.command == "cancel-github":

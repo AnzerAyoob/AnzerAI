@@ -9,6 +9,8 @@ Core validates a manually dispatched GitHub workflow, actor, and target before i
 - [Security](docs/SECURITY.md)
 - [GitHub intake protocol v2](docs/protocol-v2.md)
 - [Job lifecycle protocol v3](docs/protocol-v3.md)
+- [Inference protocol v4](docs/API.md)
+- [Bring your own provider key](docs/BYOK.md)
 - [Legacy development protocol v1](docs/protocol-v1.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture decision](docs/CORE_ARCHITECTURE.md)
